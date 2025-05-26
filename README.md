@@ -28,7 +28,7 @@ FinWise is a comprehensive personal finance management application that helps us
 
 1. Clone the repository
 ```bash
-git clone [your-repo-url]
+git clone https://github.com/farhansadat/Luna-Expense-Tracker.git
 cd finwise
 ```
 
@@ -38,8 +38,8 @@ npm install
 ```
 
 3. Set up environment variables
-Create a `.env` file in the root directory and add:
-```env
+Create a `.env` file in the root directory and add your Supabase credentials:
+```
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
@@ -55,11 +55,7 @@ A React Native mobile app version is planned for development, which will share t
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
