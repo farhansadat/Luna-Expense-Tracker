@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Glowing background circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#glow)" />
+  
+  <!-- Face shape -->
+  <circle cx="256" cy="256" r="200" fill="url(#face-gradient)" />
+  
+  <!-- Eyes -->
+  <circle cx="196" cy="236" r="24" fill="#ffffff" />
+  <circle cx="316" cy="236" r="24" fill="#ffffff" />
+  <circle cx="196" cy="236" r="12" fill="#7C3AED" />
+  <circle cx="316" cy="236" r="12" fill="#7C3AED" />
+  
+  <!-- Smile -->
+  <path d="M196 296c60 40 120 40 180 0" stroke="#ffffff" stroke-width="12" stroke-linecap="round" />
+  
+  <!-- Gradients -->
+  <defs>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 256) rotate(90) scale(240)">
+      <stop offset="0%" stop-color="#7C3AED" />
+      <stop offset="100%" stop-color="#4C1D95" />
+    </radialGradient>
+    
+    <linearGradient id="face-gradient" x1="256" y1="56" x2="256" y2="456" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9F7AEA" />
+      <stop offset="100%" stop-color="#7C3AED" />
+    </linearGradient>
+  </defs>
+</svg> 
