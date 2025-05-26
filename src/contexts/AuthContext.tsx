@@ -27,8 +27,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadUserProfile = async (userId: string, retries = 3) => {
     try {
-      // Add a small delay before making the request to prevent rate limiting
+      // Add a small delay before making the request
       await delay(500);
+
+      // Get the current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!session) throw new Error('No active session');
 
       // First, check if profile exists
       const { data: profile, error } = await supabase
@@ -43,12 +48,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // If profile doesn't exist, create it
       if (!profile) {
-        const { data: user } = await supabase.auth.getUser();
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
           .insert([{
             id: userId,
-            name: user?.user?.user_metadata?.name || '',
+            name: session.user?.user_metadata?.name || '',
             onboarding_completed: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
@@ -79,7 +83,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error loading user profile:', error);
       if (retries > 0) {
-        // If any other error occurs, wait and retry
         await delay(1000);
         return loadUserProfile(userId, retries - 1);
       }
@@ -88,10 +91,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const checkOnboardingStatus = async () => {
-    if (!user) return false;
-
     try {
-      const profile = await loadUserProfile(user.id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return false;
+
+      const profile = await loadUserProfile(session.user.id);
       if (!profile) return false;
 
       setIsOnboardingCompleted(!!profile.onboarding_completed);

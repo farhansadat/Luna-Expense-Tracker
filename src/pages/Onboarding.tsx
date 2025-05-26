@@ -96,10 +96,10 @@ export default function Onboarding() {
     setLoading(true);
 
     try {
-      // First, verify the user exists and get their current data
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
-      if (!userData.user) throw new Error('User not found');
+      // First, verify the session and user exists
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!session?.user) throw new Error('No active session');
 
       // Update profile with onboarding data
       const { error: profileError } = await supabase
@@ -108,20 +108,22 @@ export default function Onboarding() {
           name: formData.name,
           monthly_income: parseFloat(formData.monthlyIncome),
           monthly_budget: parseFloat(formData.monthlyBudget),
-          total_balance: parseFloat(formData.totalBalance) || 0,
           currency: formData.currency,
           onboarding_completed: true,
           updated_at: new Date().toISOString()
         })
-        .eq('id', userData.user.id);
+        .eq('id', session.user.id);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        throw new Error('Failed to update profile: ' + profileError.message);
+      }
 
       // Create default account using the RPC function
       const { data: accountId, error: accountError } = await supabase.rpc(
         'create_new_account',
         {
-          p_user_id: userData.user.id,
+          p_user_id: session.user.id,
           p_name: 'Main Account',
           p_type: 'personal',
           p_currency: formData.currency,
@@ -145,7 +147,10 @@ export default function Onboarding() {
           })
           .eq('id', accountId);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('Account update error:', updateError);
+          throw new Error('Failed to update account: ' + updateError.message);
+        }
       }
 
       // Save financial goals
@@ -154,7 +159,7 @@ export default function Onboarding() {
           .from('goals')
           .insert(
             formData.goals.map(goal => ({
-              user_id: userData.user.id,
+              user_id: session.user.id,
               title: goal.title,
               target_amount: goal.targetAmount,
               current_amount: 0,
@@ -165,7 +170,10 @@ export default function Onboarding() {
             }))
           );
 
-        if (goalsError) throw goalsError;
+        if (goalsError) {
+          console.error('Goals creation error:', goalsError);
+          throw new Error('Failed to create goals: ' + goalsError.message);
+        }
       }
 
       // Update global settings
