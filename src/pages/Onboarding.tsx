@@ -119,22 +119,54 @@ export default function Onboarding() {
         throw new Error('Failed to update profile: ' + profileError.message);
       }
 
-      // Create default account using the RPC function
-      const { data: accountId, error: accountError } = await supabase.rpc(
-        'create_new_account',
-        {
-          p_user_id: session.user.id,
-          p_name: 'Main Account',
-          p_type: 'personal',
-          p_currency: formData.currency,
-          p_color: 'bg-gradient-to-br from-purple-500 to-indigo-500',
-          p_icon: 'wallet'
-        }
-      );
+      let accountId: string | null = null;
 
-      if (accountError) {
-        console.error('Account creation error:', accountError);
-        throw new Error('Failed to create account: ' + accountError.message);
+      // Try to create account using RPC function first
+      try {
+        const { data: rpcAccountId, error: accountError } = await supabase.rpc(
+          'create_new_account',
+          {
+            p_user_id: session.user.id,
+            p_name: 'Main Account',
+            p_type: 'personal',
+            p_currency: formData.currency,
+            p_color: 'bg-gradient-to-br from-purple-500 to-indigo-500',
+            p_icon: 'wallet'
+          }
+        );
+
+        if (!accountError) {
+          accountId = rpcAccountId;
+        }
+      } catch (rpcError) {
+        console.warn('RPC account creation failed, falling back to direct insert:', rpcError);
+      }
+
+      // If RPC failed, try direct insert
+      if (!accountId) {
+        const { data: insertedAccount, error: insertError } = await supabase
+          .from('accounts')
+          .insert({
+            user_id: session.user.id,
+            name: 'Main Account',
+            type: 'personal',
+            currency: formData.currency,
+            color: 'bg-gradient-to-br from-purple-500 to-indigo-500',
+            icon: 'wallet',
+            balance: parseFloat(formData.totalBalance) || 0,
+            is_default: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Account creation error:', insertError);
+          throw new Error('Failed to create account: ' + insertError.message);
+        }
+
+        accountId = insertedAccount.id;
       }
 
       // Set the account as default and update its balance
