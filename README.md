@@ -2,6 +2,8 @@
 
 Luna is a modern, responsive personal finance management application built with React, TypeScript, and Supabase. It helps users track their accounts, expenses, and financial goals with a beautiful and intuitive interface, powered by an AI assistant.
 
+Created by Said Alimullah Sadat
+
 ![Luna Dashboard](screenshots/dashboard.png)
 
 ## Features
@@ -169,6 +171,11 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
+## Author
+
+**Said Alimullah Sadat**
+- GitHub: [@farhansadat](https://github.com/farhansadat)
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -182,4 +189,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [OpenAI](https://openai.com/) for powering our AI features
 
 ---
-*Built with ❤️ using React, TypeScript, and Supabase*
+*Built with ❤️ by Said Alimullah Sadat using React, TypeScript, and Supabase*
