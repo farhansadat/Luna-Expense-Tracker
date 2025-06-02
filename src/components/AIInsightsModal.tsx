@@ -10,7 +10,7 @@ import {
 import { useExpenseStore } from '../store/expenseStore';
 import { formatCurrency } from '../lib/currency';
 import { useUserSettingsStore } from '../store/userSettingsStore';
-import { categories } from '../types';
+import { categories } from '../data/categories';
 
 interface AIInsightsModalProps {
   isOpen: boolean;
@@ -33,48 +33,64 @@ export default function AIInsightsModal({ isOpen, onClose }: AIInsightsModalProp
   // Generate insights based on expense data
   const generateInsights = (): Insight[] => {
     const insights: Insight[] = [];
+    
+    if (!expenses || expenses.length === 0) {
+      return insights;
+    }
+
     const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
     const categorySums = expenses.reduce((acc, exp) => {
-      acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
+      if (exp.type === 'expense' && exp.category && categories[exp.category]) {
+        acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
+      }
       return acc;
     }, {} as Record<string, number>);
 
     // Find highest spending category
-    const highestCategory = Object.entries(categorySums).sort((a, b) => b[1] - a[1])[0];
-    if (highestCategory) {
-      insights.push({
-        id: '1',
-        type: 'trend',
-        title: 'Highest Spending Category',
-        description: `Your highest spending is in ${
-          categories[highestCategory[0] as keyof typeof categories].name
-        } at ${formatCurrency(highestCategory[1], currency)}`,
-        icon: faChartLine,
-        color: 'text-blue-500',
-      });
+    const sortedCategories = Object.entries(categorySums).sort((a, b) => b[1] - a[1]);
+    if (sortedCategories.length > 0) {
+      const [categoryKey, amount] = sortedCategories[0];
+      const category = categories[categoryKey];
+      if (category) {
+        insights.push({
+          id: '1',
+          type: 'trend',
+          title: 'Highest Spending Category',
+          description: `Your highest spending is in ${category.name} at ${formatCurrency(amount, currency)}`,
+          icon: faChartLine,
+          color: 'text-blue-500',
+        });
+      }
     }
 
     // Check for unusual spending patterns
-    const avgExpense = totalExpenses / expenses.length;
-    const highExpenses = expenses.filter((exp) => exp.amount > avgExpense * 2);
-    if (highExpenses.length > 0) {
-      insights.push({
-        id: '2',
-        type: 'alert',
-        title: 'Unusual Spending Detected',
-        description: `Found ${
-          highExpenses.length
-        } transactions that are significantly higher than your average spending of ${formatCurrency(
-          avgExpense,
-          currency
-        )}`,
-        icon: faExclamationTriangle,
-        color: 'text-yellow-500',
-      });
+    const expenseOnlyAmounts = expenses
+      .filter(exp => exp.type === 'expense')
+      .map(exp => exp.amount);
+    
+    if (expenseOnlyAmounts.length > 0) {
+      const avgExpense = expenseOnlyAmounts.reduce((sum, amount) => sum + amount, 0) / expenseOnlyAmounts.length;
+      const highExpenses = expenses.filter((exp) => exp.type === 'expense' && exp.amount > avgExpense * 2);
+      
+      if (highExpenses.length > 0) {
+        insights.push({
+          id: '2',
+          type: 'alert',
+          title: 'Unusual Spending Detected',
+          description: `Found ${
+            highExpenses.length
+          } transactions that are significantly higher than your average spending of ${formatCurrency(
+            avgExpense,
+            currency
+          )}`,
+          icon: faExclamationTriangle,
+          color: 'text-yellow-500',
+        });
+      }
     }
 
     // Suggest savings opportunities
-    const recurringExpenses = expenses.filter((exp) => exp.is_recurring);
+    const recurringExpenses = expenses.filter((exp) => exp.is_recurring && exp.type === 'expense');
     if (recurringExpenses.length > 0) {
       insights.push({
         id: '3',

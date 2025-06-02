@@ -11,6 +11,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
+    storage: window.localStorage,
+    storageKey: 'finwise_auth',
+    detectSessionInUrl: true
   },
   headers: {
     'Content-Type': 'application/json',

@@ -7,8 +7,8 @@ import {
   faTimes,
   faSpinner
 } from '@fortawesome/free-solid-svg-icons';
-import { categories } from '../types';
-import type { CategoryKey } from '../types';
+import { categories } from '../data/categories';
+import type { CategoryKey } from '../data/categories';
 import { useExpenseStore } from '../store/expenseStore';
 import { useUserSettingsStore } from '../store/userSettingsStore';
 import { formatCurrency } from '../utils/formatters';

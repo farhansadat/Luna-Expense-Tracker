@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useUserSettingsStore } from '../store/userSettingsStore';
+import { useAuthStore } from '../store/authStore';
 
 interface AuthContextType {
   user: User | null;
@@ -12,6 +13,7 @@ interface AuthContextType {
   checkOnboardingStatus: () => Promise<boolean>;
   userProfile: any | null;
   isLoading: boolean;
+  isDemo: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,82 +26,98 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isOnboardingCompleted, setIsOnboardingCompleted] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const { updateSettings } = useUserSettingsStore();
+  const { isDemo, setDemoMode } = useAuthStore();
 
-  const loadUserProfile = async (userId: string, retries = 3) => {
+  const setupDemoUser = () => {
+    const demoUser = {
+      id: 'demo-user',
+      email: 'demo@finwise.com',
+      user_metadata: { name: 'Demo User' }
+    } as User;
+
+    setUser(demoUser);
+    setIsOnboardingCompleted(true);
+    setUserProfile({
+      id: demoUser.id,
+      name: 'Demo User',
+      onboarding_completed: true,
+      currency: 'USD',
+      monthly_income: 5000,
+      monthly_budget: 3500,
+      total_balance: 27000,
+    });
+
+    updateSettings({
+      name: 'Demo User',
+      currency: 'USD',
+      monthlyIncome: 5000,
+      monthlyBudget: 3500,
+      totalBalance: 27000,
+      onboardingCompleted: true
+    });
+  };
+
+  const fetchProfile = async (userId: string, retryCount = 0) => {
+    if (isDemo) return;
+
     try {
-      // Add a small delay before making the request
-      await delay(500);
-
-      // Get the current session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) throw sessionError;
-      if (!session) throw new Error('No active session');
-
-      // First, check if profile exists
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .maybeSingle();
+        .single();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Profile not found - this is expected for new users
+          setIsOnboardingCompleted(false);
+          return;
+        }
         throw error;
       }
 
-      // If profile doesn't exist, create it
-      if (!profile) {
-        const { data: newProfile, error: createError } = await supabase
-          .from('profiles')
-          .insert([{
-            id: userId,
-            name: session.user?.user_metadata?.name || '',
-            onboarding_completed: false,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }])
-          .select()
-          .single();
-
-        if (createError) throw createError;
-        
-        setUserProfile(newProfile);
+      if (profile) {
+        setIsOnboardingCompleted(profile.onboarding_completed || false);
+        setUserProfile(profile);
         updateSettings({
-          monthlyIncome: newProfile?.monthly_income || 0,
-          name: newProfile?.name || '',
-          currency: newProfile?.currency || 'USD'
+          name: profile.name,
+          currency: profile.currency || 'USD',
+          monthlyIncome: profile.monthly_income || 0,
+          monthlyBudget: profile.monthly_budget || 0,
+          totalBalance: profile.total_balance || 0,
+          onboardingCompleted: profile.onboarding_completed || false
         });
 
-        return newProfile;
+        // Only redirect to onboarding if we're not already there and not in the login process
+        if (!profile.onboarding_completed && 
+            !location.pathname.includes('onboarding') && 
+            !location.pathname.includes('login') &&
+            !location.pathname.includes('register')) {
+          window.location.href = '/app/onboarding';
+        }
       }
-
-      setUserProfile(profile);
-      updateSettings({
-        monthlyIncome: profile?.monthly_income || 0,
-        name: profile?.name || '',
-        currency: profile?.currency || 'USD'
-      });
-
-      return profile;
-    } catch (error) {
-      console.error('Error loading user profile:', error);
-      if (retries > 0) {
-        await delay(1000);
-        return loadUserProfile(userId, retries - 1);
+    } catch (error: any) {
+      console.error('Profile fetch error:', error);
+      if (retryCount < 3) {
+        // Exponential backoff for retries
+        const delay = Math.pow(2, retryCount) * 1000;
+        setTimeout(() => fetchProfile(userId, retryCount + 1), delay);
+      } else {
+        // After 3 retries, just log the error
+        console.error('Failed to fetch profile after 3 retries:', error);
       }
-      return null;
     }
   };
 
   const checkOnboardingStatus = async () => {
+    if (isDemo) return true;
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return false;
 
-      const profile = await loadUserProfile(session.user.id);
-      if (!profile) return false;
-
-      setIsOnboardingCompleted(!!profile.onboarding_completed);
-      return !!profile.onboarding_completed;
+      await fetchProfile(session.user.id);
+      return !!session.user.user_metadata.onboarding_completed;
     } catch (error) {
       console.error('Error checking onboarding status:', error);
       return false;
@@ -140,6 +158,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    // Check for demo account
+    if (email === 'demo@finwise.com' && password === 'demo123') {
+      setDemoMode(true);
+      setupDemoUser();
+      return;
+    }
+    
+    setDemoMode(false);
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -153,6 +179,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, name: string) => {
+    setDemoMode(false);
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
@@ -190,6 +217,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    if (isDemo) {
+      setDemoMode(false);
+      setUser(null);
+      setIsOnboardingCompleted(false);
+      setUserProfile(null);
+      return;
+    }
+
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
@@ -210,7 +245,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isOnboardingCompleted,
     checkOnboardingStatus,
     userProfile,
-    isLoading: loading
+    isLoading: loading,
+    isDemo
   };
 
   return (

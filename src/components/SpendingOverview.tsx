@@ -1,4 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Line } from 'react-chartjs-2';
+import { useExpenseStore } from '../store/expenseStore';
+import { useUserSettingsStore } from '../store/userSettingsStore';
+import { formatCurrency } from '../lib/currency';
+import Card from './Card';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -22,112 +27,134 @@ ChartJS.register(
   Filler
 );
 
-const options = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: true,
-      position: 'top' as const,
-      labels: {
-        color: '#94a3b8', // text-dark-400
-        font: {
-          size: 12,
-        },
-      },
-    },
-    tooltip: {
-      mode: 'index' as const,
-      intersect: false,
-      backgroundColor: '#1e293b', // bg-dark-800
-      titleColor: '#f8fafc', // text-dark-50
-      bodyColor: '#cbd5e1', // text-dark-300
-      borderColor: '#334155', // border-dark-700
-      borderWidth: 1,
-      padding: 12,
-      bodyFont: {
-        size: 12,
-      },
-      titleFont: {
-        size: 14,
-        weight: 'bold',
-      },
-    },
-  },
-  scales: {
-    x: {
-      grid: {
-        display: false,
-      },
-      ticks: {
-        color: '#94a3b8', // text-dark-400
-      },
-    },
-    y: {
-      grid: {
-        color: '#334155', // border-dark-700
-        drawBorder: false,
-      },
-      ticks: {
-        color: '#94a3b8', // text-dark-400
-        callback: (value: number) => `$${value.toLocaleString()}`,
-      },
-    },
-  },
-  interaction: {
-    mode: 'nearest' as const,
-    axis: 'x' as const,
-    intersect: false,
-  },
-};
+interface ChartData {
+  labels: string[];
+  income: number[];
+  expenses: number[];
+}
 
 export default function SpendingOverview() {
-  // Sample data - replace with real data from your state management
+  const { expenses } = useExpenseStore();
+  const { currency } = useUserSettingsStore();
+  const [chartData, setChartData] = useState<ChartData>({
+    labels: [],
+    income: [],
+    expenses: []
+  });
+
+  useEffect(() => {
+    // Get the last 6 months
+    const months = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      return d;
+    }).reverse();
+
+    const monthLabels = months.map(date => 
+      date.toLocaleString('default', { month: 'short' })
+    );
+
+    // Calculate income and expenses for each month
+    const monthlyData = months.map(date => {
+      const monthExpenses = expenses.filter(expense => {
+        const expenseDate = new Date(expense.date);
+        return expenseDate.getMonth() === date.getMonth() &&
+               expenseDate.getFullYear() === date.getFullYear();
+      });
+
+      const income = monthExpenses
+        .filter(expense => expense.type === 'income' || expense.category === 'Income')
+        .reduce((sum, expense) => sum + expense.amount, 0);
+
+      const expenseTotal = monthExpenses
+        .filter(expense => expense.type === 'expense' && expense.category !== 'Income')
+        .reduce((sum, expense) => sum + expense.amount, 0);
+
+      return { income, expenses: expenseTotal };
+    });
+
+    setChartData({
+      labels: monthLabels,
+      income: monthlyData.map(d => d.income),
+      expenses: monthlyData.map(d => d.expenses)
+    });
+  }, [expenses]);
+
   const data = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    labels: chartData.labels,
     datasets: [
       {
         label: 'Income',
-        data: [6500, 5900, 8000, 8100, 7600, 8250],
-        borderColor: '#10B981', // text-accent-success
+        data: chartData.income,
+        borderColor: '#10B981',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
-        fill: true,
         tension: 0.4,
+        fill: true
       },
       {
         label: 'Expenses',
-        data: [4800, 4200, 4600, 4300, 4100, 4320],
-        borderColor: '#EF4444', // text-accent-danger
+        data: chartData.expenses,
+        borderColor: '#EF4444',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        fill: true,
         tension: 0.4,
+        fill: true
+      }
+    ]
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+        labels: {
+          color: '#9CA3AF'
+        }
       },
-    ],
+      tooltip: {
+        callbacks: {
+          label: function(context: any) {
+            let label = context.dataset.label || '';
+            if (label) {
+              label += ': ';
+            }
+            if (context.parsed.y !== null) {
+              label += formatCurrency(context.parsed.y, currency);
+            }
+            return label;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: {
+          color: 'rgba(75, 85, 99, 0.2)'
+        },
+        ticks: {
+          color: '#9CA3AF'
+        }
+      },
+      y: {
+        beginAtZero: true,
+        grid: {
+          color: 'rgba(75, 85, 99, 0.2)'
+        },
+        ticks: {
+          color: '#9CA3AF',
+          callback: (value: any) => formatCurrency(value, currency)
+        }
+      }
+    }
   };
 
   return (
-    <div className="w-full">
-      <div className="flex items-center justify-between mb-6">
-        <div className="space-y-1">
-          <h3 className="text-dark-100 text-lg font-semibold">Income vs Expenses</h3>
-          <p className="text-dark-400 text-sm">Last 6 months overview</p>
-        </div>
-        
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-accent-success"></div>
-            <span className="text-dark-300 text-sm">Income</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-accent-danger"></div>
-            <span className="text-dark-300 text-sm">Expenses</span>
-          </div>
-        </div>
+    <Card className="p-6">
+      <h2 className="text-xl font-semibold text-white mb-6">Income vs Expenses</h2>
+      <div className="h-80">
+        <Line data={data} options={options} />
       </div>
-
-      <div className="h-[300px]">
-        <Line options={options} data={data} />
-      </div>
-    </div>
+    </Card>
   );
 } 

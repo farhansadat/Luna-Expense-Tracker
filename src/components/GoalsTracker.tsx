@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -7,196 +7,44 @@ import {
   faPen, 
   faTrash,
   faCheck,
-  faTimes
+  faTimes,
+  faSpinner,
+  faPencilAlt,
+  faChartLine,
+  faCog
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { formatCurrency } from '../lib/currency';
+import { useUserSettingsStore } from '../store/userSettingsStore';
+import { useGoalsStore } from '../store/goalsStore';
+import GoalsManagementModal from './GoalsManagementModal';
+import AddGoalModal from './AddGoalModal';
 
 interface Goal {
   id: string;
   title: string;
-  targetAmount: number;
-  currentAmount: number;
+  target_amount: number;
+  current_amount: number;
   deadline: string;
-  category?: string;
+  category: string;
   description?: string;
-}
-
-interface AddGoalModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onAdd: (goal: Omit<Goal, 'id'>) => void;
-  initialData?: Goal;
-}
-
-function AddGoalModal({ isOpen, onClose, onAdd, initialData }: AddGoalModalProps) {
-  const [formData, setFormData] = useState<Omit<Goal, 'id'>>(
-    initialData || {
-      title: '',
-      targetAmount: 0,
-      currentAmount: 0,
-      deadline: new Date().toISOString().split('T')[0],
-      category: '',
-      description: ''
-    }
-  );
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onAdd(formData);
-    onClose();
-  };
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-        >
-          <motion.div
-            className="w-full max-w-md bg-dark-800 rounded-xl p-6"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-          >
-            <h2 className="text-xl font-semibold text-dark-50 mb-6">
-              {initialData ? 'Edit Goal' : 'Add New Goal'}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Goal Title
-                </label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full bg-dark-700 border border-dark-600 rounded-lg px-4 py-2 text-dark-50 focus:outline-none focus:ring-2 focus:ring-accent-primary"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Target Amount
-                </label>
-                <input
-                  type="number"
-                  value={formData.targetAmount}
-                  onChange={(e) => setFormData({ ...formData, targetAmount: parseFloat(e.target.value) })}
-                  className="w-full bg-dark-700 border border-dark-600 rounded-lg px-4 py-2 text-dark-50 focus:outline-none focus:ring-2 focus:ring-accent-primary"
-                  required
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Current Amount
-                </label>
-                <input
-                  type="number"
-                  value={formData.currentAmount}
-                  onChange={(e) => setFormData({ ...formData, currentAmount: parseFloat(e.target.value) })}
-                  className="w-full bg-dark-700 border border-dark-600 rounded-lg px-4 py-2 text-dark-50 focus:outline-none focus:ring-2 focus:ring-accent-primary"
-                  required
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Deadline
-                </label>
-                <input
-                  type="date"
-                  value={formData.deadline}
-                  onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                  className="w-full bg-dark-700 border border-dark-600 rounded-lg px-4 py-2 text-dark-50 focus:outline-none focus:ring-2 focus:ring-accent-primary"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Category
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full bg-dark-700 border border-dark-600 rounded-lg px-4 py-2 text-dark-50 focus:outline-none focus:ring-2 focus:ring-accent-primary"
-                >
-                  <option value="">Select a category</option>
-                  <option value="savings">Savings</option>
-                  <option value="investment">Investment</option>
-                  <option value="purchase">Major Purchase</option>
-                  <option value="debt">Debt Repayment</option>
-                  <option value="emergency">Emergency Fund</option>
-                  <option value="education">Education</option>
-                  <option value="travel">Travel</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full bg-dark-700 border border-dark-600 rounded-lg px-4 py-2 text-dark-50 focus:outline-none focus:ring-2 focus:ring-accent-primary"
-                  rows={3}
-                />
-              </div>
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 bg-dark-700 text-dark-200 rounded-lg hover:bg-dark-600 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-accent-primary text-white rounded-lg hover:bg-accent-primary/90 transition-colors"
-                >
-                  {initialData ? 'Save Changes' : 'Add Goal'}
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
 }
 
 export default function GoalsTracker() {
   const { user } = useAuth();
-  const [goals, setGoals] = useState<Goal[]>([]);
+  const { goals, isLoading, error, fetchGoals } = useGoalsStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [showCongrats, setShowCongrats] = useState<string | null>(null);
+  const { currency } = useUserSettingsStore();
+  const [showManagement, setShowManagement] = useState(false);
 
-  const fetchGoals = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('goals')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('deadline', { ascending: true });
-
-      if (error) throw error;
-      setGoals(data || []);
-    } catch (error) {
-      console.error('Error fetching goals:', error);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (user) {
+      fetchGoals();
     }
-  };
+  }, [user, fetchGoals]);
 
   const handleAddGoal = async (goalData: Omit<Goal, 'id'>) => {
     if (!user) return;
@@ -212,9 +60,11 @@ export default function GoalsTracker() {
         .single();
 
       if (error) throw error;
-      setGoals([...goals, data]);
-    } catch (error) {
+      fetchGoals();
+      setShowAddModal(false);
+    } catch (error: any) {
       console.error('Error adding goal:', error);
+      alert('Failed to add goal');
     }
   };
 
@@ -222,23 +72,26 @@ export default function GoalsTracker() {
     if (!user || !editingGoal) return;
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('goals')
-        .update(goalData)
-        .eq('id', editingGoal.id)
-        .select()
-        .single();
+        .update({
+          ...goalData,
+          user_id: user.id
+        })
+        .eq('id', editingGoal.id);
 
       if (error) throw error;
-      setGoals(goals.map(g => g.id === editingGoal.id ? data : g));
+      fetchGoals();
       setEditingGoal(null);
-    } catch (error) {
+      setShowAddModal(false);
+    } catch (error: any) {
       console.error('Error updating goal:', error);
+      alert('Failed to update goal');
     }
   };
 
   const handleDeleteGoal = async (goalId: string) => {
-    if (!user || !window.confirm('Are you sure you want to delete this goal?')) return;
+    if (!user) return;
 
     try {
       const { error } = await supabase
@@ -247,94 +100,195 @@ export default function GoalsTracker() {
         .eq('id', goalId);
 
       if (error) throw error;
-      setGoals(goals.filter(g => g.id !== goalId));
-    } catch (error) {
+      fetchGoals();
+    } catch (error: any) {
       console.error('Error deleting goal:', error);
+      alert('Failed to delete goal');
     }
   };
 
-  const calculateProgress = (current: number, target: number) => {
-    return Math.min((current / target) * 100, 100);
+  const updateGoalProgress = async (goalId: string, newAmount: number) => {
+    if (!user) return;
+
+    try {
+      const goal = goals.find(g => g.id === goalId);
+      if (!goal) return;
+
+      const { error } = await supabase
+        .from('goals')
+        .update({ current_amount: goal.current_amount + newAmount })
+        .eq('id', goalId);
+
+      if (error) throw error;
+
+      // Check if goal is completed
+      if (goal.current_amount + newAmount >= goal.target_amount) {
+        setShowCongrats(goalId);
+      }
+
+      fetchGoals();
+    } catch (error: any) {
+      console.error('Error updating goal progress:', error);
+      alert('Failed to update goal progress');
+    }
   };
 
-  return (
-    <div className="space-y-4">
-      {goals.map((goal) => (
-        <div key={goal.id} className="p-4 bg-dark-700/50 rounded-lg group">
-          <div className="flex justify-between items-center mb-2">
-            <div>
-              <h3 className="font-medium text-dark-50">{goal.title}</h3>
-              {goal.description && (
-                <p className="text-sm text-dark-400 mt-1">{goal.description}</p>
-              )}
-            </div>
-            <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                onClick={() => setEditingGoal(goal)}
-                className="p-1.5 text-dark-400 hover:text-dark-200 transition-colors"
-                title="Edit Goal"
-              >
-                <FontAwesomeIcon icon={faPen} className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => handleDeleteGoal(goal.id)}
-                className="p-1.5 text-dark-400 hover:text-accent-danger transition-colors"
-                title="Delete Goal"
-              >
-                <FontAwesomeIcon icon={faTrash} className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-dark-200">${goal.currentAmount.toLocaleString()}</span>
-              <span className="text-dark-200">${goal.targetAmount.toLocaleString()}</span>
-            </div>
-            
-            <div className="h-2 bg-dark-600 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-accent-primary to-accent-secondary rounded-full transition-all duration-500"
-                style={{
-                  width: `${calculateProgress(goal.currentAmount, goal.targetAmount)}%`
-                }}
-              />
-            </div>
-            
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-dark-400">
-                Due {new Date(goal.deadline).toLocaleDateString()}
-              </span>
-              <span className="text-dark-400">
-                {calculateProgress(goal.currentAmount, goal.targetAmount).toFixed(1)}% Complete
-              </span>
-            </div>
-          </div>
+  if (isLoading) {
+    return (
+      <div className="bg-dark-800 rounded-xl p-6">
+        <div className="flex items-center justify-center h-64">
+          <FontAwesomeIcon icon={faSpinner} className="animate-spin text-2xl text-gray-400" />
         </div>
-      ))}
+      </div>
+    );
+  }
 
-      <button
-        onClick={() => setShowAddModal(true)}
-        className="w-full py-3 bg-dark-700/50 rounded-lg text-dark-400 hover:text-dark-200 hover:bg-dark-700 transition-all duration-200 flex items-center justify-center space-x-2"
-      >
-        <FontAwesomeIcon icon={faPlus} className="w-4 h-4" />
-        <span>Add New Goal</span>
-      </button>
+  if (error) {
+    return (
+      <div className="bg-dark-800 rounded-xl p-6">
+        <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 text-red-500">
+          {error}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-dark-800 rounded-xl p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-accent-primary/10 rounded-lg flex items-center justify-center">
+            <FontAwesomeIcon icon={faBullseye} className="text-accent-primary text-xl" />
+          </div>
+          <h2 className="text-lg font-semibold text-white">Financial Goals</h2>
+        </div>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowManagement(true)}
+            className="p-2 text-gray-400 hover:text-white transition-colors"
+          >
+            <FontAwesomeIcon icon={faCog} />
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="p-2 bg-accent-primary text-white rounded-lg hover:bg-accent-primary/80 transition-colors"
+          >
+            <FontAwesomeIcon icon={faPlus} />
+          </button>
+        </div>
+      </div>
+
+      {goals.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-400">No goals yet. Start by adding a goal!</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {goals.map((goal) => {
+            const progress = (goal.current_amount / goal.target_amount) * 100;
+            const timeLeft = new Date(goal.deadline).getTime() - new Date().getTime();
+            const daysLeft = Math.ceil(timeLeft / (1000 * 60 * 60 * 24));
+
+            return (
+              <div
+                key={goal.id}
+                className="bg-dark-700 rounded-lg p-4 space-y-4"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium text-white">{goal.title}</h3>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => {
+                        setEditingGoal(goal);
+                        setShowAddModal(true);
+                      }}
+                      className="p-2 text-gray-400 hover:text-white"
+                    >
+                      <FontAwesomeIcon icon={faPencilAlt} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteGoal(goal.id)}
+                      className="p-2 text-gray-400 hover:text-red-500"
+                    >
+                      <FontAwesomeIcon icon={faTrash} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-400">Target Amount</p>
+                    <p className="text-white">{formatCurrency(goal.target_amount, currency)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Current Amount</p>
+                    <p className="text-white">{formatCurrency(goal.current_amount, currency)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Progress</p>
+                    <p className="text-white">{progress.toFixed(1)}%</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Time Left</p>
+                    <p className="text-white">{daysLeft} days</p>
+                  </div>
+                </div>
+
+                <div className="w-full bg-dark-600 rounded-full h-2">
+                  <div
+                    className="bg-accent-primary rounded-full h-2 transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <GoalsManagementModal
+        isOpen={showManagement}
+        onClose={() => setShowManagement(false)}
+      />
 
       <AddGoalModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
-        onAdd={handleAddGoal}
+        onAdd={editingGoal ? handleEditGoal : handleAddGoal}
+        initialData={editingGoal || undefined}
       />
 
-      {editingGoal && (
-        <AddGoalModal
-          isOpen={true}
-          onClose={() => setEditingGoal(null)}
-          onAdd={handleEditGoal}
-          initialData={editingGoal}
-        />
-      )}
+      <AnimatePresence>
+        {showCongrats && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          >
+            <motion.div
+              className="bg-dark-800 rounded-xl p-6 text-center"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FontAwesomeIcon icon={faCheck} className="text-2xl text-white" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">Congratulations!</h3>
+              <p className="text-gray-400 mb-6">
+                You've reached your goal! Keep up the great work!
+              </p>
+              <button
+                onClick={() => setShowCongrats(null)}
+                className="px-6 py-2 bg-accent-primary text-white rounded-lg hover:bg-accent-primary/80 transition-colors"
+              >
+                Continue
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 } 

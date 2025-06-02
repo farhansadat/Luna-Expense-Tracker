@@ -1,3 +1,10 @@
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useAuthStore } from '../store/authStore';
+import { useAccountStore } from '../store/accountStore';
+import { useExpenseStore } from '../store/expenseStore';
+import { useGoalsStore } from '../store/goalsStore';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -11,6 +18,13 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function Demo() {
+  const { signIn } = useAuth();
+  const navigate = useNavigate();
+  const { setDemoMode } = useAuthStore();
+  const { fetchAccounts } = useAccountStore();
+  const { fetchExpenses } = useExpenseStore();
+  const { fetchGoals } = useGoalsStore();
+
   const features = [
     {
       icon: faRobot,
@@ -38,6 +52,33 @@ export default function Demo() {
       description: 'Set and achieve your financial goals with AI guidance.'
     }
   ];
+
+  useEffect(() => {
+    const initializeDemo = async () => {
+      try {
+        // Enable demo mode
+        setDemoMode(true);
+        
+        // Initialize demo user
+        await signIn('demo@finwise.com', 'demo123');
+
+        // Fetch demo data
+        await Promise.all([
+          fetchAccounts(),
+          fetchExpenses(),
+          fetchGoals()
+        ]);
+
+        // Navigate to dashboard
+        navigate('/app/dashboard');
+      } catch (error) {
+        console.error('Error initializing demo:', error);
+        navigate('/login');
+      }
+    };
+
+    initializeDemo();
+  }, [signIn, navigate, setDemoMode, fetchAccounts, fetchExpenses, fetchGoals]);
 
   return (
     <div className="py-20">

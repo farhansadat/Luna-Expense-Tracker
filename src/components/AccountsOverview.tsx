@@ -12,12 +12,18 @@ import {
   faEllipsisV,
   faEdit,
   faTrash,
+  faMagic,
+  faBuilding,
+  faUsers
 } from '@fortawesome/free-solid-svg-icons';
 import { useAccountStore } from '../store/accountStore';
 import { formatCurrency } from '../lib/currency';
 import { useUserSettingsStore } from '../store/userSettingsStore';
+import { useAuth } from '../contexts/AuthContext';
+import { seedDashboardData } from '../utils/seedData';
 import type { Account } from '../types';
 import AddAccountModal from './AddAccountModal';
+import { toast } from 'react-hot-toast';
 
 interface AccountCardProps {
   account: Account;
@@ -31,16 +37,12 @@ const AccountCard = ({ account, onEdit, onDelete }: AccountCardProps) => {
 
   const getIcon = (type: Account['type']) => {
     switch (type) {
-      case 'cash':
-        return faMoneyBill;
-      case 'bank':
+      case 'personal':
         return faWallet;
-      case 'credit':
-        return faCreditCard;
-      case 'investment':
-        return faChartLine;
-      case 'savings':
-        return faPiggyBank;
+      case 'business':
+        return faBuilding;
+      case 'family':
+        return faUsers;
       default:
         return faWallet;
     }
@@ -124,12 +126,39 @@ export default function AccountsOverview() {
   } = useAccountStore();
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [showAddAccount, setShowAddAccount] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const { currency } = useUserSettingsStore();
+  const { user } = useAuth();
 
   useEffect(() => {
+    console.log('Fetching accounts and payments...');
     fetchAccounts();
     fetchScheduledPayments();
   }, [fetchAccounts, fetchScheduledPayments]);
+
+  useEffect(() => {
+    console.log('Current accounts:', accounts);
+  }, [accounts]);
+
+  const handleSeedData = async () => {
+    if (!user) return;
+    setSeeding(true);
+    try {
+      const success = await seedDashboardData(user.id);
+      if (success) {
+        toast.success('Demo data added successfully!');
+        fetchAccounts();
+        fetchScheduledPayments();
+      } else {
+        toast.error('Failed to add demo data');
+      }
+    } catch (error) {
+      console.error('Error seeding data:', error);
+      toast.error('Failed to add demo data');
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const handleEditAccount = (account: Account) => {
     setSelectedAccount(account);
@@ -142,7 +171,7 @@ export default function AccountsOverview() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || seeding) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500"></div>
@@ -154,6 +183,37 @@ export default function AccountsOverview() {
     return (
       <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 text-red-500">
         {error}
+        <button 
+          onClick={() => fetchAccounts()}
+          className="mt-2 text-sm underline hover:text-red-400"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  if (!accounts || accounts.length === 0) {
+    return (
+      <div className="text-center py-12 bg-white/5 rounded-xl p-6">
+        <h3 className="text-xl font-semibold text-white mb-2">Welcome to FinWise!</h3>
+        <p className="text-gray-400 mb-6">Get started by adding your accounts or use demo data to explore the features.</p>
+        <div className="flex justify-center space-x-4">
+          <button
+            onClick={() => setShowAddAccount(true)}
+            className="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center space-x-2"
+          >
+            <FontAwesomeIcon icon={faPlus} />
+            <span>Add Account</span>
+          </button>
+          <button
+            onClick={handleSeedData}
+            className="px-6 py-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors flex items-center space-x-2"
+          >
+            <FontAwesomeIcon icon={faMagic} />
+            <span>Add Demo Data</span>
+          </button>
+        </div>
       </div>
     );
   }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card from './Card';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -15,28 +15,7 @@ import { formatCurrency } from '../lib/currency';
 import { useAccountStore } from '../store/accountStore';
 import { useUserSettingsStore } from '../store/userSettingsStore';
 import AddAccountModal from './AddAccountModal';
-
-interface Account {
-  id: string;
-  name: string;
-  balance: number;
-  type: 'personal' | 'business' | 'family';
-  isMain?: boolean;
-  color?: string;
-  monthlyBudget: number;
-}
-
-const sampleAccounts: Account[] = [
-  {
-    id: '1',
-    name: 'Personal Account',
-    balance: 5420.50,
-    type: 'personal',
-    isMain: true,
-    color: '#3B82F6',
-    monthlyBudget: 2000
-  }
-];
+import type { Account } from '../types';
 
 const getAccountIcon = (type: Account['type']) => {
   switch (type) {
@@ -52,19 +31,30 @@ const getAccountIcon = (type: Account['type']) => {
 };
 
 export default function YourAccounts() {
-  const [accounts, setAccounts] = useState<Account[]>(sampleAccounts);
-  const [selectedAccount, setSelectedAccount] = useState<string>(accounts[0].id);
+  const { accounts, fetchAccounts, createAccount } = useAccountStore();
+  const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const { deleteAccount } = useAccountStore();
   const { currency } = useUserSettingsStore();
 
-  const handleAddAccount = (newAccount: Omit<Account, 'id'>) => {
-    const account = {
-      ...newAccount,
-      id: Date.now().toString(),
-    };
-    setAccounts([...accounts, account]);
+  useEffect(() => {
+    fetchAccounts();
+  }, [fetchAccounts]);
+
+  useEffect(() => {
+    if (accounts.length > 0 && !selectedAccount) {
+      setSelectedAccount(accounts[0].id);
+    }
+  }, [accounts, selectedAccount]);
+
+  const handleAddAccount = async (newAccount: Omit<Account, 'id' | 'user_id'>) => {
+    try {
+      await createAccount(newAccount);
+      setShowAddAccount(false);
+    } catch (error) {
+      console.error('Error adding account:', error);
+    }
   };
 
   const handleDeleteAccount = async (accountId: string) => {
@@ -109,10 +99,7 @@ export default function YourAccounts() {
                   )}
                 </div>
                 <p className="text-2xl font-bold text-dark-50">
-                  {formatCurrency(account.balance)}
-                </p>
-                <p className="text-sm text-dark-400 mt-1">
-                  Budget: {formatCurrency(account.monthlyBudget)}
+                  {formatCurrency(account.balance, currency)}
                 </p>
               </div>
               <div className="opacity-0 group-hover:opacity-100 transition-opacity">

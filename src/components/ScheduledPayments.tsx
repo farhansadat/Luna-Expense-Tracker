@@ -13,7 +13,7 @@ import {
 import { useAccountStore } from '../store/accountStore';
 import { useUserSettingsStore } from '../store/userSettingsStore';
 import { formatCurrency } from '../lib/currency';
-import { categories } from '../types';
+import { categories } from '../data/categories';
 import type { ScheduledPayment } from '../types';
 import AddScheduledPaymentModal from './AddScheduledPaymentModal';
 

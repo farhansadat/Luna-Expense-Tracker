@@ -31,12 +31,6 @@ export default function AccountsSection({ accounts, onAddAccount }: AccountsSect
         return faBuilding;
       case 'family':
         return faUsers;
-      case 'credit':
-        return faCreditCard;
-      case 'savings':
-        return faPiggyBank;
-      case 'cash':
-        return faMoneyBillWave;
       default:
         return faWallet;
     }

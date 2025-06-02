@@ -9,6 +9,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -58,7 +59,8 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await signIn(email, password);
+      const { error } = await signIn(email, password);
+      if (error) throw error;
       
       // Check if user has completed onboarding
       const { data: user } = await supabase.auth.getUser();
@@ -72,7 +74,8 @@ export default function Login() {
 
       if (profileError) {
         if (profileError.code === 'PGRST116') {
-          // Profile not found, redirect to onboarding
+          // Profile not found, wait a moment for the trigger to create it
+          await new Promise(resolve => setTimeout(resolve, 1000));
           navigate('/app/onboarding');
           return;
         }
@@ -89,6 +92,18 @@ export default function Login() {
     } catch (error) {
       console.error('Login error:', error);
       setError('Failed to sign in. Please check your credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setLoading(true);
+    try {
+      await signIn('demo@finwise.com', 'demo123');
+      navigate('/app/dashboard');
+    } catch (error: any) {
+      toast.error('Failed to load demo account');
     } finally {
       setLoading(false);
     }
@@ -218,6 +233,17 @@ export default function Login() {
                   'Sign In'
                 )}
               </motion.button>
+            </motion.div>
+
+            <motion.div className="space-y-4">
+              <button
+                type="button"
+                onClick={handleDemoLogin}
+                disabled={loading}
+                className="group relative w-full flex justify-center py-2 px-4 border border-gray-700 text-sm font-medium rounded-md text-white hover:bg-dark-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-primary"
+              >
+                Try Demo Account
+              </button>
             </motion.div>
 
             <motion.p 

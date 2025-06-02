@@ -2,6 +2,101 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabase';
 import type { Expense, CategoryKey } from '../types';
+import { useAuthStore } from './authStore';
+
+// Demo data
+export const demoExpenses = [
+  {
+    id: 'demo-expense-1',
+    user_id: 'demo-user',
+    description: 'Monthly Salary',
+    amount: 25000,
+    category: 'income',
+    date: new Date().toISOString(), // Today
+    type: 'income'
+  },
+  {
+    id: 'demo-expense-2',
+    user_id: 'demo-user',
+    description: 'Luxury Car Purchase',
+    amount: 85000,
+    category: 'transportation',
+    date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // Yesterday
+    type: 'expense'
+  },
+  {
+    id: 'demo-expense-3',
+    user_id: 'demo-user',
+    description: 'Investment Property Rental Income',
+    amount: 8500,
+    category: 'income',
+    date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+    type: 'income'
+  },
+  {
+    id: 'demo-expense-4',
+    user_id: 'demo-user',
+    description: 'Luxury Watch Purchase',
+    amount: 35000,
+    category: 'shopping',
+    date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+    type: 'expense'
+  },
+  {
+    id: 'demo-expense-5',
+    user_id: 'demo-user',
+    description: 'Consulting Income',
+    amount: 15000,
+    category: 'income',
+    date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), // 4 days ago
+    type: 'income'
+  },
+  {
+    id: 'demo-expense-6',
+    user_id: 'demo-user',
+    description: 'Private Jet Charter',
+    amount: 45000,
+    category: 'travel',
+    date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
+    type: 'expense'
+  },
+  {
+    id: 'demo-expense-7',
+    user_id: 'demo-user',
+    description: 'Investment Portfolio Dividend',
+    amount: 12500,
+    category: 'income',
+    date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(), // 6 days ago
+    type: 'income'
+  },
+  {
+    id: 'demo-expense-8',
+    user_id: 'demo-user',
+    description: 'Luxury Condo Rent',
+    amount: 8500,
+    category: 'housing',
+    date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
+    type: 'expense'
+  },
+  {
+    id: 'demo-expense-9',
+    user_id: 'demo-user',
+    description: 'Fine Dining at Michelin Star Restaurant',
+    amount: 2500,
+    category: 'dining',
+    date: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(), // 8 days ago
+    type: 'expense'
+  },
+  {
+    id: 'demo-expense-10',
+    user_id: 'demo-user',
+    description: 'Home Theater Installation',
+    amount: 28000,
+    category: 'home_improvement',
+    date: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(), // 9 days ago
+    type: 'expense'
+  }
+];
 
 interface ExpenseStore {
   expenses: Expense[];
@@ -150,6 +245,16 @@ export const useExpenseStore = create<ExpenseStore>()(
       fetchExpenses: async () => {
         try {
           set({ isLoading: true, error: null });
+          const isDemo = useAuthStore.getState().isDemo;
+          
+          if (isDemo) {
+            set({ 
+              expenses: demoExpenses,
+              isLoading: false 
+            });
+            return;
+          }
+
           const { data: user } = await supabase.auth.getUser();
           if (!user) throw new Error('No user found');
 

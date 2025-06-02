@@ -1,16 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background -->
-  <rect width="512" height="512" rx="128" fill="url(#gradient-bg)"/>
+  <!-- Background Circle -->
+  <circle cx="256" cy="256" r="256" fill="url(#gradient-bg)"/>
   
-  <!-- Luna Symbol -->
-  <path d="M256 96c88.4 0 160 71.6 160 160s-71.6 160-160 160c-88.4 0-160-71.6-160-160s71.6-160 160-160"
-        stroke="white" stroke-width="32" stroke-linecap="round"/>
+  <!-- Luna Cat Face -->
+  <circle cx="256" cy="256" r="200" fill="white"/>
+  <circle cx="256" cy="256" r="180" fill="#9F7AEA"/>
   
-  <!-- Sparkle Elements -->
-  <circle cx="256" cy="256" r="24" fill="white"/>
-  <circle cx="352" cy="160" r="16" fill="white"/>
-  <circle cx="160" cy="352" r="16" fill="white"/>
+  <!-- Eyes -->
+  <circle cx="196" cy="236" r="30" fill="white"/>
+  <circle cx="316" cy="236" r="30" fill="white"/>
+  <circle cx="196" cy="236" r="20" fill="#4C1D95"/>
+  <circle cx="316" cy="236" r="20" fill="#4C1D95"/>
+  <circle cx="186" cy="226" r="10" fill="white"/>
+  <circle cx="306" cy="226" r="10" fill="white"/>
+  
+  <!-- Nose -->
+  <path d="M246 286 L266 286 L256 296 Z" fill="#4C1D95"/>
+  
+  <!-- Mouth -->
+  <path d="M226 306 Q256 326 286 306" stroke="#4C1D95" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- Ears -->
+  <path d="M146 156 L196 216 L236 176 Z" fill="#7C3AED"/>
+  <path d="M366 156 L316 216 L276 176 Z" fill="#7C3AED"/>
+  
+  <!-- Whiskers -->
+  <line x1="146" y1="286" x2="206" y2="296" stroke="#4C1D95" stroke-width="4" stroke-linecap="round"/>
+  <line x1="146" y1="306" x2="206" y2="306" stroke="#4C1D95" stroke-width="4" stroke-linecap="round"/>
+  <line x1="146" y1="326" x2="206" y2="316" stroke="#4C1D95" stroke-width="4" stroke-linecap="round"/>
+  
+  <line x1="366" y1="286" x2="306" y2="296" stroke="#4C1D95" stroke-width="4" stroke-linecap="round"/>
+  <line x1="366" y1="306" x2="306" y2="306" stroke="#4C1D95" stroke-width="4" stroke-linecap="round"/>
+  <line x1="366" y1="326" x2="306" y2="316" stroke="#4C1D95" stroke-width="4" stroke-linecap="round"/>
   
   <!-- Gradient Definition -->
   <defs>

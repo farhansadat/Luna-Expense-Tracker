@@ -1,38 +1,7 @@
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
-import {
-  faShoppingCart,
-  faUtensils,
-  faHome,
-  faCar,
-  faPlane,
-  faGamepad,
-  faGraduationCap,
-  faHeartbeat,
-  faShoppingBag,
-  faEllipsisH,
-  faWifi,
-  faCoins,
-  faChartLine,
-  faPiggyBank,
-  faMoneyBill,
-} from '@fortawesome/free-solid-svg-icons';
+import { categories, CategoryKey } from './data/categories';
 
-export type CategoryKey =
-  | 'groceries'
-  | 'dining'
-  | 'housing'
-  | 'transportation'
-  | 'travel'
-  | 'entertainment'
-  | 'education'
-  | 'healthcare'
-  | 'shopping'
-  | 'utilities'
-  | 'income'
-  | 'investment'
-  | 'savings'
-  | 'subscription'
-  | 'other';
+export type { CategoryKey };
 
 export interface Category {
   name: string;
@@ -40,85 +9,6 @@ export interface Category {
   color: string;
   isIncome?: boolean;
 }
-
-export const categories: Record<CategoryKey, Category> = {
-  groceries: {
-    name: 'Groceries',
-    icon: faShoppingCart,
-    color: '#4CAF50',
-  },
-  dining: {
-    name: 'Dining',
-    icon: faUtensils,
-    color: '#FF9800',
-  },
-  housing: {
-    name: 'Housing',
-    icon: faHome,
-    color: '#2196F3',
-  },
-  transportation: {
-    name: 'Transportation',
-    icon: faCar,
-    color: '#F44336',
-  },
-  travel: {
-    name: 'Travel',
-    icon: faPlane,
-    color: '#9C27B0',
-  },
-  entertainment: {
-    name: 'Entertainment',
-    icon: faGamepad,
-    color: '#E91E63',
-  },
-  education: {
-    name: 'Education',
-    icon: faGraduationCap,
-    color: '#3F51B5',
-  },
-  healthcare: {
-    name: 'Healthcare',
-    icon: faHeartbeat,
-    color: '#00BCD4',
-  },
-  shopping: {
-    name: 'Shopping',
-    icon: faShoppingBag,
-    color: '#795548',
-  },
-  utilities: {
-    name: 'Utilities',
-    icon: faWifi,
-    color: '#607D8B',
-  },
-  income: {
-    name: 'Income',
-    icon: faMoneyBill,
-    color: '#4CAF50',
-    isIncome: true,
-  },
-  investment: {
-    name: 'Investment',
-    icon: faChartLine,
-    color: '#3F51B5',
-  },
-  savings: {
-    name: 'Savings',
-    icon: faPiggyBank,
-    color: '#009688',
-  },
-  subscription: {
-    name: 'Subscriptions',
-    icon: faCoins,
-    color: '#FF5722',
-  },
-  other: {
-    name: 'Other',
-    icon: faEllipsisH,
-    color: '#9E9E9E',
-  },
-};
 
 export interface Expense {
   id: string;
@@ -177,7 +67,7 @@ export interface Account {
   id: string;
   user_id: string;
   name: string;
-  type: 'cash' | 'bank' | 'credit' | 'investment' | 'savings';
+  type: 'personal' | 'business' | 'family';
   balance: number;
   currency: string;
   institution?: string;

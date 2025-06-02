@@ -1,57 +1,94 @@
-# FinWise - Personal Finance Management App
+# FinWise - Personal Finance Dashboard
 
-FinWise is a comprehensive personal finance management application that helps users track expenses, manage budgets, and achieve financial goals.
+FinWise is a modern, responsive personal finance management application built with React, TypeScript, and Supabase. It helps users track their accounts, expenses, and financial goals with a beautiful and intuitive interface.
+
+![FinWise Dashboard](screenshot.png)
 
 ## Features
 
-- 📊 Dashboard with financial overview
-- 💰 Expense tracking and categorization
-- 🎯 Financial goals setting and tracking
-- 📈 Investment portfolio management
-- 🤖 AI-powered financial insights
-- 📱 Mobile-responsive design
-- 🔄 Subscription management
-- 📊 Advanced analytics
-- 🧾 Receipt scanning capability
+- 📊 Real-time financial dashboard
+- 💳 Multiple account management
+- 📅 Scheduled payments tracking
+- 💰 Expense categorization
+- 📈 Financial goals tracking
+- 🌙 Dark mode support
+- 📱 Responsive design
+- 🔐 Secure authentication with Supabase
 
 ## Tech Stack
 
-- Frontend: React + TypeScript
-- Styling: TailwindCSS
-- Backend: Supabase
-- Authentication: Supabase Auth
-- Database: PostgreSQL (via Supabase)
-- State Management: Custom stores
-- AI Integration: OpenAI
+- React
+- TypeScript
+- Tailwind CSS
+- Framer Motion
+- Supabase (Backend & Authentication)
+- Zustand (State Management)
+- React Router
+- FontAwesome Icons
 
 ## Getting Started
 
-1. Clone the repository
+1. Clone the repository:
 ```bash
-git clone https://github.com/farhansadat/Luna-Expense-Tracker.git
+git clone https://github.com/yourusername/finwise.git
 cd finwise
 ```
 
-2. Install dependencies
+2. Install dependencies:
 ```bash
 npm install
 ```
 
-3. Set up environment variables
-Create a `.env` file in the root directory and add your Supabase credentials:
-```
+3. Create a `.env` file in the root directory with your Supabase credentials:
+```env
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-4. Start the development server
+4. Start the development server:
 ```bash
 npm run dev
 ```
 
-## Mobile App
+5. Open [http://localhost:5173](http://localhost:5173) to view it in the browser.
 
-A React Native mobile app version is planned for development, which will share the same backend infrastructure with the web app.
+## Project Structure
+
+```
+src/
+  ├── components/       # React components
+  ├── contexts/        # React contexts
+  ├── lib/            # Utility functions and configurations
+  ├── pages/          # Page components
+  ├── store/          # Zustand store definitions
+  ├── styles/         # Global styles and Tailwind config
+  ├── types/          # TypeScript type definitions
+  └── utils/          # Helper functions
+```
+
+## Features in Detail
+
+### Account Management
+- Create and manage multiple accounts
+- Track account balances
+- Categorize accounts (personal, business, family)
+- Set primary account
+
+### Transaction Tracking
+- Record expenses and income
+- Categorize transactions
+- Add notes and receipts
+- View transaction history
+
+### Scheduled Payments
+- Set up recurring payments
+- Get reminders for upcoming payments
+- Track payment history
+
+### Financial Goals
+- Set savings goals
+- Track progress
+- Get insights and recommendations
 
 ## Contributing
 
@@ -59,12 +96,14 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
-- Icons by FontAwesome
-- UI Components inspired by modern financial dashboards
-- Charts powered by Chart.js
+
+- [Supabase](https://supabase.io/) for the amazing backend service
+- [Tailwind CSS](https://tailwindcss.com/) for the utility-first CSS framework
+- [Framer Motion](https://www.framer.com/motion/) for smooth animations
+- [FontAwesome](https://fontawesome.com/) for the beautiful icons
 
 ---
 *Note: This README will be automatically updated as new features are added to the project.*

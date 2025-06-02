@@ -9,8 +9,9 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useAccountStore } from '../store/accountStore';
 import { useUserSettingsStore } from '../store/userSettingsStore';
-import { categories } from '../types';
-import type { ScheduledPayment, CategoryKey } from '../types';
+import { categories } from '../data/categories';
+import type { CategoryKey } from '../data/categories';
+import type { ScheduledPayment } from '../types';
 
 interface AddScheduledPaymentModalProps {
   isOpen: boolean;

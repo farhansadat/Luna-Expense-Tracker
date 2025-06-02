@@ -65,7 +65,14 @@ export default function Onboarding() {
     monthlyBudget: '',
     totalBalance: '',
     categories: [] as string[],
-    goals: [] as { title: string; targetAmount: number; deadline: string; category: string }[]
+    goals: [] as { 
+      title: string; 
+      target_amount: number; 
+      current_amount: number; 
+      deadline: string; 
+      category: string;
+      description?: string;
+    }[]
   });
 
   const getLunaMessage = (step: number) => {
@@ -101,106 +108,99 @@ export default function Onboarding() {
       if (sessionError) throw sessionError;
       if (!session?.user) throw new Error('No active session');
 
-      // Update profile with onboarding data
-      const { error: profileError } = await supabase
+      // First, ensure the profile exists
+      const { data: existingProfile, error: profileCheckError } = await supabase
         .from('profiles')
-        .update({
-          name: formData.name,
-          monthly_income: parseFloat(formData.monthlyIncome),
-          monthly_budget: parseFloat(formData.monthlyBudget),
-          currency: formData.currency,
-          onboarding_completed: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', session.user.id);
+        .select('id')
+        .eq('id', session.user.id)
+        .single();
 
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-        throw new Error('Failed to update profile: ' + profileError.message);
+      if (profileCheckError && profileCheckError.code !== 'PGRST116') {
+        throw profileCheckError;
       }
 
-      let accountId: string | null = null;
-
-      // Try to create account using RPC function first
-      try {
-        const { data: rpcAccountId, error: accountError } = await supabase.rpc(
-          'create_new_account',
-          {
-            p_user_id: session.user.id,
-            p_name: 'Main Account',
-            p_type: 'personal',
-            p_currency: formData.currency,
-            p_color: 'bg-gradient-to-br from-purple-500 to-indigo-500',
-            p_icon: 'wallet'
-          }
-        );
-
-        if (!accountError) {
-          accountId = rpcAccountId;
-        }
-      } catch (rpcError) {
-        console.warn('RPC account creation failed, falling back to direct insert:', rpcError);
-      }
-
-      // If RPC failed, try direct insert
-      if (!accountId) {
-        const { data: insertedAccount, error: insertError } = await supabase
-          .from('accounts')
+      // If profile doesn't exist, create it
+      if (!existingProfile) {
+        const { error: createProfileError } = await supabase
+          .from('profiles')
           .insert({
-            user_id: session.user.id,
-            name: 'Main Account',
-            type: 'personal',
+            id: session.user.id,
+            name: formData.name,
+            monthly_income: parseFloat(formData.monthlyIncome),
+            monthly_budget: parseFloat(formData.monthlyBudget),
+            total_balance: parseFloat(formData.totalBalance) || 0,
             currency: formData.currency,
-            color: 'bg-gradient-to-br from-purple-500 to-indigo-500',
-            icon: 'wallet',
-            balance: parseFloat(formData.totalBalance) || 0,
-            is_default: true,
+            onboarding_completed: true,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
-          })
-          .select()
-          .single();
+          });
 
-        if (insertError) {
-          console.error('Account creation error:', insertError);
-          throw new Error('Failed to create account: ' + insertError.message);
+        if (createProfileError) {
+          console.error('Profile creation error:', createProfileError);
+          throw new Error('Failed to create profile: ' + createProfileError.message);
         }
+      } else {
+        // Update existing profile
+        const { error: updateProfileError } = await supabase
+          .from('profiles')
+          .update({
+            name: formData.name,
+            monthly_income: parseFloat(formData.monthlyIncome),
+            monthly_budget: parseFloat(formData.monthlyBudget),
+            total_balance: parseFloat(formData.totalBalance) || 0,
+            currency: formData.currency,
+            onboarding_completed: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', session.user.id);
 
-        accountId = insertedAccount.id;
+        if (updateProfileError) {
+          console.error('Profile update error:', updateProfileError);
+          throw new Error('Failed to update profile: ' + updateProfileError.message);
+        }
       }
 
-      // Set the account as default and update its balance
-      if (accountId) {
-        const { error: updateError } = await supabase
-          .from('accounts')
-          .update({
-            is_default: true,
-            balance: parseFloat(formData.totalBalance) || 0
-          })
-          .eq('id', accountId);
+      // Now create the account
+      const { data: account, error: accountError } = await supabase
+        .from('accounts')
+        .insert({
+          user_id: session.user.id,
+          name: 'Main Account',
+          type: 'personal',
+          currency: formData.currency,
+          balance: parseFloat(formData.totalBalance) || 0,
+          monthly_budget: parseFloat(formData.monthlyBudget) || 0,
+          is_default: true,
+          color: '#6366f1',
+          icon: 'wallet',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
 
-        if (updateError) {
-          console.error('Account update error:', updateError);
-          throw new Error('Failed to update account: ' + updateError.message);
-        }
+      if (accountError) {
+        console.error('Account creation error:', accountError);
+        throw new Error('Failed to create account: ' + accountError.message);
       }
 
       // Save financial goals
       if (formData.goals && formData.goals.length > 0) {
+        const goalsToInsert = formData.goals.map(goal => ({
+          user_id: session.user.id,
+          title: goal.title,
+          target_amount: goal.target_amount,
+          current_amount: goal.current_amount,
+          deadline: goal.deadline,
+          category: goal.category,
+          description: goal.description || '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }));
+
         const { error: goalsError } = await supabase
           .from('goals')
-          .insert(
-            formData.goals.map(goal => ({
-              user_id: session.user.id,
-              title: goal.title,
-              target_amount: goal.targetAmount,
-              current_amount: 0,
-              deadline: goal.deadline,
-              category: goal.category,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }))
-          );
+          .insert(goalsToInsert);
 
         if (goalsError) {
           console.error('Goals creation error:', goalsError);
@@ -212,7 +212,10 @@ export default function Onboarding() {
       updateSettings({
         name: formData.name,
         currency: formData.currency,
-        monthlyIncome: parseFloat(formData.monthlyIncome)
+        monthlyIncome: parseFloat(formData.monthlyIncome),
+        monthlyBudget: parseFloat(formData.monthlyBudget),
+        totalBalance: parseFloat(formData.totalBalance) || 0,
+        onboardingCompleted: true
       });
 
       // Make sure onboarding status is updated in the auth context
@@ -472,7 +475,7 @@ export default function Onboarding() {
 
           {/* Navigation Buttons */}
           <div className="flex justify-between mt-8">
-            {step > 1 && step !== 4 && (
+            {step > 1 && step !== 4 && step !== 3 && (
               <button
                 onClick={() => setStep(step - 1)}
                 className="px-6 py-2 bg-dark-700 text-dark-200 rounded-lg hover:bg-dark-600 transition-colors"
@@ -480,7 +483,7 @@ export default function Onboarding() {
                 Back
               </button>
             )}
-            {step < 4 && (
+            {step < 4 && step !== 3 && (
               <button
                 onClick={() => {
                   if (step === 1 && !formData.name) {

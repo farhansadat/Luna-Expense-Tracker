@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabase';
 import type { Account, ScheduledPayment } from '../types';
 import { toast } from 'react-hot-toast';
+import { useAuthStore } from './authStore';
 
 export interface Account {
   id: string;
@@ -43,6 +44,37 @@ interface AccountStore {
   addAccount: (account: Account) => void;
 }
 
+// Demo data
+const demoAccounts: Account[] = [
+  {
+    id: 'demo-checking',
+    user_id: 'demo-user',
+    name: 'Checking Account',
+    type: 'checking',
+    balance: 125000,
+    currency: 'USD',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'demo-savings',
+    user_id: 'demo-user',
+    name: 'Savings Account',
+    type: 'savings',
+    balance: 450000,
+    currency: 'USD',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'demo-investment',
+    user_id: 'demo-user',
+    name: 'Investment Account',
+    type: 'investment',
+    balance: 275000,
+    currency: 'USD',
+    created_at: new Date().toISOString(),
+  }
+];
+
 export const useAccountStore = create<AccountStore>()(
   persist(
     (set, get) => ({
@@ -56,6 +88,17 @@ export const useAccountStore = create<AccountStore>()(
       fetchAccounts: async () => {
         try {
           set({ loading: true, error: null });
+          const isDemo = useAuthStore.getState().isDemo;
+          
+          if (isDemo) {
+            set({ 
+              accounts: demoAccounts,
+              selectedAccount: get().selectedAccount || (demoAccounts.length > 0 ? demoAccounts[0] : null),
+              loading: false 
+            });
+            return;
+          }
+
           const { data: user } = await supabase.auth.getUser();
           if (!user) throw new Error('No user found');
 

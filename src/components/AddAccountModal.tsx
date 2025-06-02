@@ -11,6 +11,7 @@ import {
 import { useAccountStore } from '../store/accountStore';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'react-hot-toast';
 
 interface AddAccountModalProps {
   isOpen: boolean;
@@ -32,28 +33,38 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user) {
+      console.error('No user found when creating account');
+      return;
+    }
     setLoading(true);
 
     try {
       const newAccount = {
         user_id: user.id,
-        name: formData.name,
+        name: formData.name.trim(),
         type: formData.type,
-        balance: parseFloat(formData.balance),
+        balance: parseFloat(formData.balance) || 0,
         currency: formData.currency,
         color: formData.color,
-        icon: formData.icon
+        icon: formData.icon,
+        created_at: new Date().toISOString(),
+        is_default: false
       };
 
+      console.log('Creating new account:', newAccount);
       const { data, error } = await supabase
         .from('accounts')
         .insert([newAccount])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating account:', error);
+        throw error;
+      }
       
+      console.log('Account created successfully:', data);
       if (data && addAccount) {
         addAccount(data);
         onClose();
@@ -65,9 +76,11 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
           color: '#6366F1',
           icon: 'wallet'
         });
+        toast.success('Account created successfully');
       }
     } catch (error) {
-      console.error('Error saving account:', error);
+      console.error('Error in handleSubmit:', error);
+      toast.error('Failed to create account. Please try again.');
     } finally {
       setLoading(false);
     }

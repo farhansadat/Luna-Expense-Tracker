@@ -13,7 +13,9 @@ import {
   faSignOutAlt,
   faTrash,
   faSun,
-  faMoon
+  faMoon,
+  faArrowLeft,
+  faKey
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -29,6 +31,12 @@ export default function Settings() {
   const { currency, updateSettings } = useUserSettingsStore();
   const [error, setError] = useState('');
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
 
   const [formData, setFormData] = useState({
     name: '',
@@ -112,7 +120,32 @@ export default function Settings() {
     setSuccessMessage('');
 
     try {
-      const { error } = await supabase
+      // First verify current password if changing password
+      if (passwordData.newPassword) {
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+          throw new Error('New passwords do not match');
+        }
+
+        // Verify current password
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: user.email!,
+          password: passwordData.currentPassword,
+        });
+
+        if (signInError) {
+          throw new Error('Current password is incorrect');
+        }
+
+        // Update password
+        const { error: passwordError } = await supabase.auth.updateUser({
+          password: passwordData.newPassword
+        });
+
+        if (passwordError) throw passwordError;
+      }
+
+      // Update profile
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({
           name: formData.name,
@@ -121,18 +154,28 @@ export default function Settings() {
         })
         .eq('id', user.id);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
 
+      // Update settings in store
       updateSettings({
         name: formData.name,
         currency: formData.currency
       });
 
+      // Clear password fields after successful update
+      if (passwordData.newPassword) {
+        setPasswordData({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+      }
+
       setSuccessMessage('Settings updated successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating settings:', error);
-      setError('Failed to update settings. Please try again.');
+      setError(error.message || 'Failed to update settings. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -172,6 +215,39 @@ export default function Settings() {
     }
   };
 
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setError('New passwords do not match');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      });
+
+      if (error) throw error;
+
+      setSuccessMessage('Password updated successfully!');
+      setShowPasswordChange(false);
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+    } catch (error) {
+      console.error('Error updating password:', error);
+      setError('Failed to update password. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
@@ -183,9 +259,16 @@ export default function Settings() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold text-white mb-2">Settings</h1>
-          <p className="text-gray-400">Customize your Luna experience</p>
+        <div className="flex items-center justify-between mb-12">
+          <button
+            onClick={() => navigate('/app/dashboard')}
+            className="flex items-center text-gray-400 hover:text-white transition-colors"
+          >
+            <FontAwesomeIcon icon={faArrowLeft} className="w-4 h-4 mr-2" />
+            Back to Dashboard
+          </button>
+          <h1 className="text-3xl font-bold text-white">Settings</h1>
+          <div className="w-24" /> {/* Spacer for centering */}
         </div>
 
         {error && (
@@ -232,6 +315,32 @@ export default function Settings() {
                     disabled
                     className="w-full bg-white/5 border border-white/10 rounded-lg py-3 px-4 text-gray-400"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-300">Password</label>
+                  <div className="space-y-4">
+                    <input
+                      type="password"
+                      value={passwordData.currentPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                      placeholder="Current Password"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-colors"
+                    />
+                    <input
+                      type="password"
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                      placeholder="New Password"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-colors"
+                    />
+                    <input
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                      placeholder="Confirm New Password"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-colors"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

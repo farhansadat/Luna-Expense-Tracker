@@ -1,15 +1,19 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faTimes,
   faChartLine,
   faChartPie,
   faChartBar,
-  faCalendar
+  faCalendar,
+  faArrowUp,
+  faArrowDown,
+  faClock
 } from '@fortawesome/free-solid-svg-icons';
 import { useExpenseStore } from '../store/expenseStore';
 import { useUserSettingsStore } from '../store/userSettingsStore';
-import { categories } from '../types';
+import { categories } from '../data/categories';
+import { formatCurrency } from '../lib/currency';
 
 interface AnalyticsProps {
   isOpen: boolean;
@@ -19,7 +23,7 @@ interface AnalyticsProps {
 export default function Analytics({ isOpen, onClose }: AnalyticsProps) {
   const [timeframe, setTimeframe] = useState<'week' | 'month' | 'year'>('month');
   const { expenses } = useExpenseStore();
-  const { currency } = useUserSettingsStore();
+  const { currency, monthlyIncome } = useUserSettingsStore();
 
   const getTimeframeExpenses = () => {
     const now = new Date();
@@ -40,29 +44,56 @@ export default function Analytics({ isOpen, onClose }: AnalyticsProps) {
     return expenses.filter(expense => new Date(expense.date) >= timeframeStart);
   };
 
-  const calculateMetrics = () => {
+  const metrics = useMemo(() => {
     const timeframeExpenses = getTimeframeExpenses();
     const totalSpent = timeframeExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    
+    // Calculate expenses by category
     const expensesByCategory = timeframeExpenses.reduce((acc, exp) => {
       acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
       return acc;
     }, {} as Record<string, number>);
 
-    const averageExpense = totalSpent / timeframeExpenses.length || 0;
-    const maxExpense = Math.max(...timeframeExpenses.map(exp => exp.amount), 0);
+    // Calculate daily expenses
+    const dailyExpenses = timeframeExpenses.reduce((acc, exp) => {
+      const date = new Date(exp.date).toLocaleDateString();
+      acc[date] = (acc[date] || 0) + exp.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Calculate spending trends
+    const sortedDailyExpenses = Object.entries(dailyExpenses)
+      .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime());
+    
+    const spendingTrend = sortedDailyExpenses.length > 1
+      ? ((sortedDailyExpenses[sortedDailyExpenses.length - 1][1] - sortedDailyExpenses[0][1]) / sortedDailyExpenses[0][1]) * 100
+      : 0;
+
+    // Calculate average daily spending
+    const averageDailySpending = totalSpent / Object.keys(dailyExpenses).length || 0;
+
+    // Find peak spending days
+    const peakSpendingDay = Object.entries(dailyExpenses)
+      .sort(([, a], [, b]) => b - a)[0];
+
+    // Calculate savings rate
+    const timeframeIncome = monthlyIncome * (timeframe === 'week' ? 0.25 : timeframe === 'month' ? 1 : 12);
+    const savingsRate = timeframeIncome > 0 ? ((timeframeIncome - totalSpent) / timeframeIncome) * 100 : 0;
 
     return {
       totalSpent,
       expensesByCategory,
-      averageExpense,
-      maxExpense,
-      totalTransactions: timeframeExpenses.length
+      dailyExpenses: sortedDailyExpenses,
+      averageDailySpending,
+      peakSpendingDay,
+      spendingTrend,
+      savingsRate,
+      totalTransactions: timeframeExpenses.length,
+      timeframeIncome
     };
-  };
+  }, [timeframe, expenses, monthlyIncome]);
 
   if (!isOpen) return null;
-
-  const metrics = calculateMetrics();
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
@@ -105,69 +136,157 @@ export default function Analytics({ isOpen, onClose }: AnalyticsProps) {
           {/* Overview Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div className="bg-dark-700 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-400 mb-2">Total Spent</h3>
-              <p className="text-2xl font-bold text-white">
-                {currency} {metrics.totalSpent.toLocaleString()}
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-400">Total Spent</h3>
+                <FontAwesomeIcon 
+                  icon={metrics.spendingTrend >= 0 ? faArrowUp : faArrowDown} 
+                  className={metrics.spendingTrend >= 0 ? 'text-red-400' : 'text-green-400'}
+                />
+              </div>
+              <p className="text-2xl font-bold text-white mt-2">
+                {formatCurrency(metrics.totalSpent, currency)}
+              </p>
+              <p className="text-sm text-gray-400 mt-1">
+                {Math.abs(metrics.spendingTrend).toFixed(1)}% {metrics.spendingTrend >= 0 ? 'increase' : 'decrease'}
               </p>
             </div>
+
             <div className="bg-dark-700 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-400 mb-2">Average Expense</h3>
-              <p className="text-2xl font-bold text-white">
-                {currency} {metrics.averageExpense.toLocaleString()}
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-400">Savings Rate</h3>
+                <FontAwesomeIcon icon={faPiggyBank} className="text-accent-primary" />
+              </div>
+              <p className="text-2xl font-bold text-white mt-2">
+                {metrics.savingsRate.toFixed(1)}%
+              </p>
+              <p className="text-sm text-gray-400 mt-1">
+                of {formatCurrency(metrics.timeframeIncome, currency)} income
               </p>
             </div>
+
             <div className="bg-dark-700 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-400 mb-2">Largest Expense</h3>
-              <p className="text-2xl font-bold text-white">
-                {currency} {metrics.maxExpense.toLocaleString()}
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-400">Daily Average</h3>
+                <FontAwesomeIcon icon={faClock} className="text-accent-primary" />
+              </div>
+              <p className="text-2xl font-bold text-white mt-2">
+                {formatCurrency(metrics.averageDailySpending, currency)}
+              </p>
+              <p className="text-sm text-gray-400 mt-1">
+                per day this {timeframe}
               </p>
             </div>
+
             <div className="bg-dark-700 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-400 mb-2">Total Transactions</h3>
-              <p className="text-2xl font-bold text-white">
-                {metrics.totalTransactions}
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-400">Peak Spending</h3>
+                <FontAwesomeIcon icon={faChartBar} className="text-accent-primary" />
+              </div>
+              <p className="text-2xl font-bold text-white mt-2">
+                {metrics.peakSpendingDay ? formatCurrency(metrics.peakSpendingDay[1], currency) : '0'}
+              </p>
+              <p className="text-sm text-gray-400 mt-1">
+                on {metrics.peakSpendingDay ? new Date(metrics.peakSpendingDay[0]).toLocaleDateString() : 'N/A'}
               </p>
             </div>
           </div>
 
           {/* Spending by Category */}
           <div className="bg-dark-700 rounded-lg p-6 mb-8">
-            <h3 className="text-lg font-medium text-white mb-4">Spending by Category</h3>
+            <h3 className="text-lg font-medium text-white mb-4 flex items-center">
+              <FontAwesomeIcon icon={faChartPie} className="mr-2" />
+              Spending by Category
+            </h3>
             <div className="space-y-4">
-              {Object.entries(metrics.expensesByCategory).map(([category, amount]) => (
-                <div key={category}>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-gray-300">{categories[category]?.name || category}</span>
-                    <span className="text-white">{currency} {amount.toLocaleString()}</span>
+              {Object.entries(metrics.expensesByCategory)
+                .sort(([, a], [, b]) => b - a)
+                .map(([category, amount]) => (
+                  <div key={category}>
+                    <div className="flex justify-between items-center mb-1">
+                      <div className="flex items-center">
+                        <FontAwesomeIcon 
+                          icon={categories[category]?.icon || faChartBar} 
+                          className="mr-2 text-accent-primary"
+                        />
+                        <span className="text-gray-300">{categories[category]?.name || category}</span>
+                      </div>
+                      <span className="text-white">{formatCurrency(amount, currency)}</span>
+                    </div>
+                    <div className="w-full bg-dark-600 rounded-full h-2">
+                      <div
+                        className="bg-accent-primary rounded-full h-2"
+                        style={{
+                          width: `${(amount / metrics.totalSpent * 100).toFixed(1)}%`
+                        }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {(amount / metrics.totalSpent * 100).toFixed(1)}% of total spending
+                    </p>
                   </div>
-                  <div className="w-full bg-dark-600 rounded-full h-2">
-                    <div
-                      className="bg-accent-primary rounded-full h-2"
-                      style={{
-                        width: `${(amount / metrics.totalSpent * 100).toFixed(1)}%`
-                      }}
-                    />
-                  </div>
-                </div>
               ))}
+            </div>
+          </div>
+
+          {/* Daily Spending Trend */}
+          <div className="bg-dark-700 rounded-lg p-6 mb-8">
+            <h3 className="text-lg font-medium text-white mb-4 flex items-center">
+              <FontAwesomeIcon icon={faChartLine} className="mr-2" />
+              Daily Spending Trend
+            </h3>
+            <div className="h-64 flex items-end space-x-2">
+              {metrics.dailyExpenses.map(([date, amount]) => {
+                const height = `${(amount / Math.max(...metrics.dailyExpenses.map(([, a]) => a)) * 100)}%`;
+                return (
+                  <div
+                    key={date}
+                    className="flex-1 flex flex-col items-center group"
+                    style={{ minWidth: '20px' }}
+                  >
+                    <div className="relative w-full">
+                      <div
+                        className="w-full bg-accent-primary rounded-t"
+                        style={{ height }}
+                      />
+                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-dark-800 text-white px-2 py-1 rounded text-xs whitespace-nowrap">
+                        {formatCurrency(amount, currency)}
+                        <br />
+                        {new Date(date).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           {/* Recent Transactions */}
           <div className="bg-dark-700 rounded-lg p-6">
-            <h3 className="text-lg font-medium text-white mb-4">Recent Transactions</h3>
+            <h3 className="text-lg font-medium text-white mb-4 flex items-center">
+              <FontAwesomeIcon icon={faCalendar} className="mr-2" />
+              Recent Transactions
+            </h3>
             <div className="space-y-3">
-              {getTimeframeExpenses().slice(0, 5).map((expense) => (
-                <div
-                  key={expense.id}
-                  className="flex items-center justify-between py-2 border-b border-dark-600 last:border-0"
-                >
-                  <div>
-                    <p className="text-white">{expense.description || categories[expense.category]?.name}</p>
-                    <p className="text-sm text-gray-400">{new Date(expense.date).toLocaleDateString()}</p>
+              {getTimeframeExpenses()
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .slice(0, 5)
+                .map((expense) => (
+                  <div
+                    key={expense.id}
+                    className="flex items-center justify-between py-2 border-b border-dark-600 last:border-0"
+                  >
+                    <div className="flex items-center">
+                      <FontAwesomeIcon 
+                        icon={categories[expense.category]?.icon || faChartBar}
+                        className="mr-3 text-accent-primary"
+                      />
+                      <div>
+                        <p className="text-white">{expense.description || categories[expense.category]?.name}</p>
+                        <p className="text-sm text-gray-400">{new Date(expense.date).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <p className="text-white">{formatCurrency(expense.amount, currency)}</p>
                   </div>
-                  <p className="text-white">{currency} {expense.amount.toLocaleString()}</p>
-                </div>
               ))}
             </div>
           </div>

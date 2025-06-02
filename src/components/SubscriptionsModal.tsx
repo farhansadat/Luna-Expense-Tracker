@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faTimes,
@@ -8,6 +8,7 @@ import {
   faCalendarAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { useUserSettingsStore } from '../store/userSettingsStore';
+import { useSubscriptionStore } from '../store/subscriptionStore';
 
 interface Subscription {
   id: string;
@@ -37,7 +38,7 @@ const POPULAR_SERVICES = [
 
 export default function SubscriptionsModal({ isOpen, onClose }: SubscriptionsModalProps) {
   const { currency } = useUserSettingsStore();
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const { subscriptions, addSubscription, updateSubscription, deleteSubscription } = useSubscriptionStore();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -49,33 +50,41 @@ export default function SubscriptionsModal({ isOpen, onClose }: SubscriptionsMod
     notes: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const subscription = {
-      id: editingId || Date.now().toString(),
-      ...formData,
-      amount: parseFloat(formData.amount)
+      name: formData.name,
+      amount: parseFloat(formData.amount),
+      billingCycle: formData.billingCycle as 'monthly' | 'yearly',
+      nextBillingDate: formData.nextBillingDate,
+      category: formData.category,
+      notes: formData.notes
     };
 
-    if (editingId) {
-      setSubscriptions(subs => subs.map(s => s.id === editingId ? subscription : s));
+    try {
+      if (editingId) {
+        await updateSubscription(editingId, subscription);
+      } else {
+        await addSubscription(subscription);
+      }
+
+      setFormData({
+        name: '',
+        amount: '',
+        billingCycle: 'monthly',
+        nextBillingDate: new Date().toISOString().split('T')[0],
+        category: 'entertainment',
+        notes: ''
+      });
+      setShowAddForm(false);
       setEditingId(null);
-    } else {
-      setSubscriptions(subs => [...subs, subscription]);
+    } catch (error) {
+      console.error('Error saving subscription:', error);
+      alert('Failed to save subscription. Please try again.');
     }
+  }, [formData, editingId, addSubscription, updateSubscription]);
 
-    setFormData({
-      name: '',
-      amount: '',
-      billingCycle: 'monthly',
-      nextBillingDate: new Date().toISOString().split('T')[0],
-      category: 'entertainment',
-      notes: ''
-    });
-    setShowAddForm(false);
-  };
-
-  const handleEdit = (subscription: Subscription) => {
+  const handleEdit = useCallback((subscription: Subscription) => {
     setFormData({
       name: subscription.name,
       amount: subscription.amount.toString(),
@@ -86,20 +95,34 @@ export default function SubscriptionsModal({ isOpen, onClose }: SubscriptionsMod
     });
     setEditingId(subscription.id);
     setShowAddForm(true);
-  };
+  }, []);
 
-  const handleDelete = (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (window.confirm('Are you sure you want to delete this subscription?')) {
-      setSubscriptions(subs => subs.filter(s => s.id !== id));
+      try {
+        await deleteSubscription(id);
+      } catch (error) {
+        console.error('Error deleting subscription:', error);
+        alert('Failed to delete subscription. Please try again.');
+      }
     }
-  };
+  }, [deleteSubscription]);
 
-  const calculateTotalMonthly = () => {
+  const handlePopularServiceSelect = useCallback((service: typeof POPULAR_SERVICES[0]) => {
+    setFormData(prev => ({
+      ...prev,
+      name: service.name,
+      amount: service.defaultAmount.toString(),
+      category: service.category
+    }));
+  }, []);
+
+  const calculateTotalMonthly = useMemo(() => {
     return subscriptions.reduce((total, sub) => {
       const amount = sub.billingCycle === 'yearly' ? sub.amount / 12 : sub.amount;
       return total + amount;
     }, 0);
-  };
+  }, [subscriptions]);
 
   if (!isOpen) return null;
 
@@ -126,12 +149,44 @@ export default function SubscriptionsModal({ isOpen, onClose }: SubscriptionsMod
           <div className="bg-dark-700 rounded-lg p-4 mb-6">
             <h3 className="text-sm font-medium text-gray-400 mb-1">Monthly Total</h3>
             <p className="text-2xl font-bold text-white">
-              {currency} {calculateTotalMonthly().toLocaleString()}
+              {currency} {calculateTotalMonthly.toLocaleString()}
             </p>
           </div>
 
+          {/* Add Subscription Button */}
+          {!showAddForm && (
+            <div className="mb-6">
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="w-full py-3 bg-accent-primary text-white rounded-lg hover:bg-accent-primary/90 transition-colors flex items-center justify-center"
+              >
+                <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                Add New Subscription
+              </button>
+            </div>
+          )}
+
+          {/* Popular Services */}
+          {showAddForm && !editingId && (
+            <div className="mb-6">
+              <h3 className="text-lg font-medium text-white mb-4">Popular Services</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {POPULAR_SERVICES.map((service) => (
+                  <button
+                    key={service.name}
+                    onClick={() => handlePopularServiceSelect(service)}
+                    className="p-3 bg-dark-700 rounded-lg hover:bg-dark-600 transition-colors text-center"
+                  >
+                    <p className="text-white font-medium">{service.name}</p>
+                    <p className="text-sm text-gray-400">{currency} {service.defaultAmount}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Add Subscription Form */}
-          {showAddForm ? (
+          {showAddForm && (
             <form onSubmit={handleSubmit} className="bg-dark-700 rounded-lg p-6 mb-6">
               <h3 className="text-lg font-medium text-white mb-4">
                 {editingId ? 'Edit Subscription' : 'Add New Subscription'}
@@ -144,7 +199,7 @@ export default function SubscriptionsModal({ isOpen, onClose }: SubscriptionsMod
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     className="w-full bg-dark-600 border border-dark-500 rounded px-3 py-2 text-white"
                     required
                   />
@@ -156,7 +211,7 @@ export default function SubscriptionsModal({ isOpen, onClose }: SubscriptionsMod
                   <input
                     type="number"
                     value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
                     className="w-full bg-dark-600 border border-dark-500 rounded px-3 py-2 text-white"
                     required
                     min="0"
@@ -169,7 +224,7 @@ export default function SubscriptionsModal({ isOpen, onClose }: SubscriptionsMod
                   </label>
                   <select
                     value={formData.billingCycle}
-                    onChange={(e) => setFormData({ ...formData, billingCycle: e.target.value as 'monthly' | 'yearly' })}
+                    onChange={(e) => setFormData(prev => ({ ...prev, billingCycle: e.target.value as 'monthly' | 'yearly' }))}
                     className="w-full bg-dark-600 border border-dark-500 rounded px-3 py-2 text-white"
                   >
                     <option value="monthly">Monthly</option>
@@ -183,7 +238,7 @@ export default function SubscriptionsModal({ isOpen, onClose }: SubscriptionsMod
                   <input
                     type="date"
                     value={formData.nextBillingDate}
-                    onChange={(e) => setFormData({ ...formData, nextBillingDate: e.target.value })}
+                    onChange={(e) => setFormData(prev => ({ ...prev, nextBillingDate: e.target.value }))}
                     className="w-full bg-dark-600 border border-dark-500 rounded px-3 py-2 text-white"
                     required
                   />
@@ -204,52 +259,10 @@ export default function SubscriptionsModal({ isOpen, onClose }: SubscriptionsMod
                   type="submit"
                   className="px-4 py-2 bg-accent-primary text-white rounded hover:bg-accent-primary/90"
                 >
-                  {editingId ? 'Update Subscription' : 'Add Subscription'}
+                  {editingId ? 'Update' : 'Add'} Subscription
                 </button>
               </div>
             </form>
-          ) : (
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-medium text-white">Your Subscriptions</h3>
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="px-4 py-2 bg-accent-primary text-white rounded hover:bg-accent-primary/90"
-              >
-                <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                Add Subscription
-              </button>
-            </div>
-          )}
-
-          {/* Popular Services */}
-          {!showAddForm && subscriptions.length === 0 && (
-            <div className="bg-dark-700 rounded-lg p-6 mb-6">
-              <h3 className="text-lg font-medium text-white mb-4">Popular Services</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {POPULAR_SERVICES.map((service) => (
-                  <button
-                    key={service.name}
-                    onClick={() => {
-                      setFormData({
-                        name: service.name,
-                        amount: service.defaultAmount.toString(),
-                        billingCycle: 'monthly',
-                        nextBillingDate: new Date().toISOString().split('T')[0],
-                        category: service.category,
-                        notes: ''
-                      });
-                      setShowAddForm(true);
-                    }}
-                    className="p-4 bg-dark-600 rounded-lg hover:bg-dark-500 transition-colors text-center"
-                  >
-                    <p className="font-medium text-white">{service.name}</p>
-                    <p className="text-sm text-gray-400">
-                      {currency} {service.defaultAmount}/mo
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
           )}
 
           {/* Subscriptions List */}
@@ -260,27 +273,32 @@ export default function SubscriptionsModal({ isOpen, onClose }: SubscriptionsMod
                 className="bg-dark-700 rounded-lg p-4 flex items-center justify-between"
               >
                 <div>
-                  <h4 className="font-medium text-white">{subscription.name}</h4>
-                  <p className="text-sm text-gray-400">
-                    {currency} {subscription.amount.toLocaleString()}/{subscription.billingCycle === 'monthly' ? 'mo' : 'yr'}
-                  </p>
+                  <h4 className="text-white font-medium">{subscription.name}</h4>
                   <p className="text-sm text-gray-400">
                     Next billing: {new Date(subscription.nextBillingDate).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleEdit(subscription)}
-                    className="p-2 text-gray-400 hover:text-white"
-                  >
-                    <FontAwesomeIcon icon={faEdit} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(subscription.id)}
-                    className="p-2 text-gray-400 hover:text-red-400"
-                  >
-                    <FontAwesomeIcon icon={faTrash} />
-                  </button>
+                <div className="flex items-center space-x-4">
+                  <p className="text-white font-medium">
+                    {currency} {subscription.amount.toLocaleString()}
+                    <span className="text-sm text-gray-400 ml-1">
+                      / {subscription.billingCycle}
+                    </span>
+                  </p>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleEdit(subscription)}
+                      className="p-2 text-gray-400 hover:text-white transition-colors"
+                    >
+                      <FontAwesomeIcon icon={faEdit} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(subscription.id)}
+                      className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                    >
+                      <FontAwesomeIcon icon={faTrash} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
